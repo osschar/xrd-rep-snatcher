@@ -1,0 +1,66 @@
+#!/bin/sh
+#
+# /etc/init.d/xrd-rep-snatcher - Start/stop the xrd-rep-snatcher service
+#
+# The following two lines allow this script to be managed by Fedora's
+# chkconfig program.
+#
+# chkconfig: - 80 30
+# description: xrootd is a cluster file system.
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+if [ -e /etc/sysconfig/xrootd ] ; then
+    . /etc/sysconfig/xrootd
+fi
+
+start() {
+    ulimit -n 65536
+    echo -n "Starting xrd-rep-snatcher: "
+    daemon --user $XROOTD_USER --pidfile /var/run/xrootd/xrd-rep-snatcher.pid /usr/bin/xrd-rep-snatcher.pl
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && touch /var/lock/subsys/xrd-rep-snatcher
+}
+
+# A function to stop a program.
+stop() {
+    echo -n "Shutting down xrd-rep-snatcher: "
+    killproc -p /var/run/xrootd/xrd-rep-snatcher.pid xrd-rep-snatcher
+    RETVAL=$?
+    echo
+    rm -f /var/lock/subsys/xrd-rep-snatcher
+    return $RETVAL
+}
+
+restart() {
+    stop
+    start
+    return $RETVAL
+}
+
+case $1 in 
+'start')
+    start
+    ;;
+'stop')
+    stop
+    ;;
+'status')
+    status xrd-rep-snatcher
+    ;;
+'reload' | 'restart')
+    restart
+    ;;
+'condrestart')
+    [ -f /var/lock/subsys/xrd-rep-snatcher ] && restart
+    ;;
+
+*)
+    echo "usage: $0 {start|stop|status|restart|condrestart}"
+    ;;
+esac
+
+exit $?
+
