@@ -12,14 +12,16 @@ use Data::Dumper qw();
 use ApMon;
 
 # Somewhat short-term solution
-use lib "perllib";
+use lib "/etc/xrootd/perllib";
+# use lib "perllib";
 
 use Getopt::FileConfig;
 
 our ($HELP, $PORT, $APMON_HOST, $APMON_PORT, $CONFIG_URL,
-     $CLUSTER_PREFIX, $CLUSTER_POSTFIX);
+     $CLUSTER_PREFIX, $CLUSTER_POSTFIX,
+     $LOG_FILE, $LOG_LEVEL);
 
-my $cfg_parser = new Getopt::FileConfig();
+my $cfg_parser = new Getopt::FileConfig(-defcfg=>"/etc/xrootd/xrd-rep-snatcher.rc");
 $cfg_parser->parse();
 
 if ($HELP)
@@ -72,20 +74,28 @@ sub load_remote_config
 
   eval LWP::Simple::get($CONFIG_URL);
 
-  print "Loading of remote config from $CONFIG_URL ";
+  print LOG "Loading of remote config from $CONFIG_URL ";
   if (defined $G_Host2Site)
   {
     $G_Host2Site_Default = $G_Host2Site;
-    print "successful:\n";
+    print LOG "successful:\n";
   }
   else
   {
     $G_Host2Site = $G_Host2Site_Default;
-    print "failed, kept old or default values:\n";
+    print LOG "failed, kept old or default values:\n";
   }
-  print "  ", Data::Dumper::Dumper($G_Host2Site);
+  print LOG "  ", Data::Dumper::Dumper($G_Host2Site);
+
+  LOG->flush();
 
   $reload_remote_config = 0;
+}
+
+sub open_log_file
+{
+  close LOG if defined(LOG);
+  open  LOG, ">> $LOG_FILE" or die "Can not open logfile '$LOG_FILE'.";
 }
 
 
@@ -106,11 +116,11 @@ sub print_compare_entries
     $o = $o->{$k};
   }
 
-  print "  ", join('.', @$path), "\n";
+  print LOG "  ", join('.', @$path), "\n";
   for $k (sort keys(%$d))
   {
-    printf("    %-10s  %20f  %20f  %20f %20f\n", $k, $d->{$k}, $o->{$k},
-	   $d->{$k} - $o->{$k}, ($d->{$k} - $o->{$k}) / $G_Delta_T);
+    printf LOG "    %-10s  %20f  %20f  %20f %20f\n", $k, $d->{$k}, $o->{$k},
+      $d->{$k} - $o->{$k}, ($d->{$k} - $o->{$k}) / $G_Delta_T;
   }
 }
 
@@ -138,7 +148,7 @@ sub send_values
     push @result, $prefix . "_" . $p, $d->{$p};
   }
 
-  # print "Sending values:", join(', ', @result), "\n";
+  # print LOG "Sending values:", join(', ', @result), "\n";
 
   push @G_Result, @result;
 }
@@ -162,11 +172,11 @@ sub send_rates
   # print "  $prefix\n";
   for $p (@$params)
   {
-    # printf "    %-8s  %20f  %20f  %20f\n", $p, $d->{$p}, $o->{$p}, $d->{$p} - $o->{$p};
+    # printf LOG "    %-8s  %20f  %20f  %20f\n", $p, $d->{$p}, $o->{$p}, $d->{$p} - $o->{$p};
     push @result, $prefix . "_" . $p . "_R", ($d->{$p} - $o->{$p}) / $G_Delta_T;
   }
 
-  # print "Sending rates:", join(', ', @result), "\n";
+  # print LOG "Sending rates:", join(', ', @result), "\n";
 
   push @G_Result, @result;
 }
@@ -176,6 +186,7 @@ sub send_rates
 # main()
 ################################################################################
 
+open_log_file();
 load_remote_config();
 
 $SIG{HUP} = sub { $reload_remote_config = 1; };
@@ -198,7 +209,7 @@ if ($APMON_PORT != 0)
 }
 else
 {
-  print "APMON_PORT = 0 -- will not publish any data!\n";
+  print LOG "APMON_PORT = 0 -- will not publish any data!\n";
 }
 
 while (1)
@@ -215,7 +226,7 @@ while (1)
   my $address = $socket->peerhost();
   my $port    = $socket->peerport();
 
-  # print "\n($address , $port) said : $raw_data\n\n";
+  # print LOG "\n($address , $port) said : $raw_data\n\n";
 
   my $d = $xml->XMLin($raw_data, keyattr => ["id"]);
 
@@ -243,22 +254,22 @@ while (1)
   $G_Host =~ m/(\w+\.\w+)$/;
   $G_Site = exists $G_Host2Site->{$1} ? $G_Host2Site->{$1} : 'unknown';
 
-  print "Message from $d->{src}, len=", length $raw_data, ", Site=$G_Site\n";
-  print "  Local time:    ", scalar localtime $d->{tor}, "\n";
-  print "  Recv time:     ", $d->{tor}, "\n";
-  print "  Service start: ", $d->{tos}, "\n";
-  print "  Collect start: ", $d->{tod}, ", end:", $d->{toe}, ", delta=", $d->{toe} - $d->{tod}, "\n";
+  print LOG "Message from $d->{src}, len=", length $raw_data, ", Site=$G_Site\n";
+  print LOG "  Local time:    ", scalar localtime $d->{tor}, "\n";
+  print LOG "  Recv time:     ", $d->{tor}, "\n";
+  print LOG "  Service start: ", $d->{tos}, "\n";
+  print LOG "  Collect start: ", $d->{tod}, ", end:", $d->{toe}, ", delta=", $d->{toe} - $d->{tod}, "\n";
 
   if ($G_Site eq 'none')
   {
-    print "  Dropping -- unknown site.";
+    print LOG "  Dropping -- unknown site.";
     next;
   }
 
   $G_Cluster = ${CLUSTER_PREFIX} . ${G_Site} . ${CLUSTER_POSTFIX};
 
-  # print $raw_data, "\n";
-  print Data::Dumper::Dumper($d);
+  # print LOG $raw_data, "\n";
+  print LOG Data::Dumper::Dumper($d);
 
   ### Process variables
 
@@ -280,7 +291,7 @@ while (1)
 
     $G_Delta_T = $d->{tor} - $o->{tor};
 
-    print "  Has prev val, time was $o->{tor}, delta=$G_Delta_T\n";
+    print LOG "  Has prev val, time was $o->{tor}, delta=$G_Delta_T\n";
 
     #print_compare_entries($d, $o, ['buff']);
     #print_compare_entries($d, $o, ['link']);
@@ -309,7 +320,7 @@ while (1)
 
   $prev_vals->{$d->{src}} = $d;
 
-  STDOUT->flush();
+  LOG->flush();
 }
 
 $socket->close();
