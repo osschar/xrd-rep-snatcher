@@ -11,14 +11,14 @@ use Data::Dumper qw();
 
 use ApMon;
 
-# Somewhat short-term solution
+# Somewhat short-term solutions
 use lib "/etc/xrootd/perllib";
 # use lib "perllib";
 
 use Getopt::FileConfig;
 
 our ($HELP, $PORT, $APMON_HOST, $APMON_PORT, $CONFIG_URL,
-     $CLUSTER_PREFIX, $CLUSTER_POSTFIX,
+     $CLUSTER_PREFIX,
      $LOG_FILE, $LOG_LEVEL);
 
 my $cfg_parser = new Getopt::FileConfig(-defcfg=>"/etc/xrootd/xrd-rep-snatcher.rc");
@@ -42,6 +42,7 @@ if ($HELP)
 # globals set for each record
 ################################################################################
 
+$G_Pgm     = "none";
 $G_Host    = "none";
 $G_Site    = "none";
 
@@ -100,8 +101,63 @@ sub open_log_file
 
 
 ################################################################################
+# xrootd / cmsd config of stuff to send to ML
+################################################################################
+
+$Pgm2ClusterPostfix =
+{
+  'xrootd' => '::XrdReport',
+  'cmsd'   => '::CmsdReport',
+};
+
+$Pgm2Values =
+{
+  'xrootd' =>
+   [
+    [ ['buff'],  ['reqs', 'buffs', 'mem'] ],
+    [ ['link'],  ['ctime', 'maxn', 'in', 'num', "out", "tmo", "tot"] ],
+    # ofs - all zeroes?
+    # oss - not used!
+    # ['poll'], ['att', 'en', 'ev', 'int']
+    # proc - only as rates
+    [ ['sched'], ['idle', 'inq', 'maxinq', 'tcr', 'tde', 'threads', 'tlimr'] ],
+   ],
+  'cmsd' =>
+   [
+    # [  ],
+   ],
+};
+
+$Pgm2Rates =
+{
+  'xrootd' => [
+    [ ['buff'], ['reqs', 'buffs', 'mem'] ],
+    [ ['link'], ['in', 'num', "out", "tmo", "tot"] ],
+    # ['poll'], ['att', 'en', 'ev', 'int']
+    [ ['proc'], ['sys', 'usr'] ],
+    [ ['sched'], ['jobs'] ],
+    [ ['xrootd', 'ops'], ['getf', 'misc', 'open', 'pr', 'putf', 'rd', 'rf', 'sync', 'wr'] ],
+  ],
+  'cmsd'   => [
+    [ ['proc'], ['sys', 'usr']  ],
+    # [  ],
+  ],
+};
+
+
+################################################################################
 # print, compare sub-trees
 ################################################################################
+
+sub print_log($@)
+{
+  my ($l, @a) = @_;
+
+  if ($LOG_LEVEL >= $l)
+  {
+    print LOG @a;
+  }
+}
 
 sub print_compare_entries
 {
@@ -148,7 +204,7 @@ sub send_values
     push @result, $prefix . "_" . $p, $d->{$p};
   }
 
-  # print LOG "Sending values:", join(', ', @result), "\n";
+  print_log 2, "Sending values:", join(', ', @result), "\n";
 
   push @G_Result, @result;
 }
@@ -176,7 +232,7 @@ sub send_rates
     push @result, $prefix . "_" . $p . "_R", ($d->{$p} - $o->{$p}) / $G_Delta_T;
   }
 
-  # print LOG "Sending rates:", join(', ', @result), "\n";
+  print_log 2, "Sending rates:", join(', ', @result), "\n";
 
   push @G_Result, @result;
 }
@@ -232,7 +288,7 @@ while (1)
 
   ### next unless $d->{src} eq 'uaf-3.t2.ucsd.edu:1094';
 
-  next unless $d->{pgm} eq 'xrootd' and exists $d->{stats};
+  next unless exists $d->{stats};
 
   # Set receive time
   $d->{tor} = $recv_time;
@@ -249,39 +305,42 @@ while (1)
     $d->{stats}{proc}{usr} = $d->{stats}{proc}{usr}{s} + 0.000001 * $d->{stats}{proc}{usr}{u};
   }
 
+  $G_Pgm  = $d->{pgm};
   $G_Host = $d->{stats}{info}{host};
 
   $G_Host =~ m/(\w+\.\w+)$/;
   $G_Site = exists $G_Host2Site->{$1} ? $G_Host2Site->{$1} : 'unknown';
 
-  print LOG "Message from $d->{src}, len=", length $raw_data, ", Site=$G_Site\n";
-  print LOG "  Local time:    ", scalar localtime $d->{tor}, "\n";
-  print LOG "  Recv time:     ", $d->{tor}, "\n";
-  print LOG "  Service start: ", $d->{tos}, "\n";
-  print LOG "  Collect start: ", $d->{tod}, ", end:", $d->{toe}, ", delta=", $d->{toe} - $d->{tod}, "\n";
+  print_log 0,
+  "Message from $d->{src}, len=", length $raw_data, ", Site=$G_Site, Pgm=$G_Pgm\n",
+  "  Local time:    ", scalar localtime $d->{tor}, "\n",
+  "  Recv time:     ", $d->{tor}, "\n",
+  "  Service start: ", $d->{tos}, "\n",
+  "  Collect start: ", $d->{tod}, ", end:", $d->{toe}, ", delta=", $d->{toe} - $d->{tod}, "\n";
 
-  if ($G_Site eq 'none')
+  if (not exists $Pgm2ClusterPostfix->{$G_Pgm})
   {
-    print LOG "  Dropping -- unknown site.";
+    print_log 0, "  Dropping -- unknown program name.";
     next;
   }
 
-  $G_Cluster = ${CLUSTER_PREFIX} . ${G_Site} . ${CLUSTER_POSTFIX};
+  if ($G_Site eq 'none')
+  {
+    print_log 0, "  Dropping -- unknown site.";
+    next;
+  }
+
+  $G_Cluster = ${CLUSTER_PREFIX} . ${G_Site} . $Pgm2ClusterPostfix->{$d->{pgm}};
 
   # print LOG $raw_data, "\n";
-  print LOG Data::Dumper::Dumper($d);
+  print_log 3, Data::Dumper::Dumper($d);
 
   ### Process variables
 
-  send_values($d, ['buff'], ['reqs', 'buffs', 'mem']);
-  send_values($d, ['link'], ['ctime', 'maxn', 'in', 'num', "out", "tmo", "tot"]);
-  # ofs - all zeroes?
-  # oss - not used!
-  # send_values($d, ['poll'], ['att', 'en', 'ev', 'int']);
-  # proc - only as rates
-  send_values($d, ['sched'], ['idle', 'inq', 'maxinq', 'tcr', 'tde', 'threads', 'tlimr']);
-  # send_values($d, ['xrootd', 'aio'], []);
-  # send_values($d, ['xrootd', 'ops'], []);
+  for $value_pair (@{$Pgm2Values->{$G_Pgm}})
+  {
+    send_values($d, $value_pair->[0], $value_pair->[1]);
+  }
 
   ### Process rates (requires previous record and the same service start time)
 
@@ -291,7 +350,7 @@ while (1)
 
     $G_Delta_T = $d->{tor} - $o->{tor};
 
-    print LOG "  Has prev val, time was $o->{tor}, delta=$G_Delta_T\n";
+    print_log 1, "  Has prev val, time was $o->{tor}, delta=$G_Delta_T\n";
 
     #print_compare_entries($d, $o, ['buff']);
     #print_compare_entries($d, $o, ['link']);
@@ -301,12 +360,10 @@ while (1)
     #print_compare_entries($d, $o, ['xrootd', 'aio']);
     #print_compare_entries($d, $o, ['xrootd', 'ops']);
 
-    send_rates($d, $o, ['buff'], ['reqs', 'buffs', 'mem']);
-    send_rates($d, $o, ['link'], ['in', 'num', "out", "tmo", "tot"]);
-    # send_rates($d, $o, ['poll'], ['att', 'en', 'ev', 'int']);
-    send_rates($d, $o, ['proc'], ['sys', 'usr']);
-    send_rates($d, $o, ['sched'], ['jobs']);
-    send_rates($d, $o, ['xrootd', 'ops'], ['getf', 'misc', 'open', 'pr', 'putf', 'rd', 'rf', 'sync', 'wr']);
+    for $value_pair (@{$Pgm2Rates->{$G_Pgm}})
+    {
+      send_rates($d, $o, $value_pair->[0], $value_pair->[1]);
+    }
 
     $G_Delta_T = 0;
   }

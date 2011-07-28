@@ -8,7 +8,6 @@ apmonport	=i	main	APMON_PORT	8884
 configurl	=s	main	CONFIG_URL	"http://xrootd.t2.ucsd.edu:8080/xrootd_cms/host_to_site.pddd"
 
 clusterprefix	=s	main	CLUSTER_PREFIX	"CMS::"
-clusterpostfix	=s	main	CLUSTER_POSTFIX	"::XrdReport"
 
 logfile		=s	main	LOG_FILE	"/var/log/xrootd/xrd-rep-snatcher"
-loglevel	=i	main	LOG_LEVEL	1
+loglevel	=i	main	LOG_LEVEL	0
