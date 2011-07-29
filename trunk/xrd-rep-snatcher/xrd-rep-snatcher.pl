@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 
+use Proc::Daemon;
+
 use IO::Socket::INET;
 use IO::Handle;
 use Time::HiRes;
@@ -18,8 +20,7 @@ use lib "/etc/xrootd/perllib";
 use Getopt::FileConfig;
 
 our ($HELP, $PORT, $APMON_HOST, $APMON_PORT, $CONFIG_URL,
-     $CLUSTER_PREFIX,
-     $LOG_FILE, $LOG_LEVEL);
+     $CLUSTER_PREFIX, $DAEMON, $LOG_FILE, $LOG_LEVEL);
 
 my $cfg_parser = new Getopt::FileConfig(-defcfg=>"/etc/xrootd/xrd-rep-snatcher.rc");
 $cfg_parser->parse();
@@ -95,8 +96,15 @@ sub load_remote_config
 
 sub open_log_file
 {
-  close LOG if defined(LOG);
-  open  LOG, ">> $LOG_FILE" or die "Can not open logfile '$LOG_FILE'.";
+  close LOG if defined(LOG) and *LOG ne *STDOUT;
+  if ($LOG_FILE eq '-')
+  {
+    *LOG = *STDOUT;
+  }
+  else
+  {
+    open  LOG, ">> $LOG_FILE" or die "Can not open logfile '$LOG_FILE'.";
+  }
 }
 
 
@@ -242,17 +250,42 @@ sub send_rates
 # main()
 ################################################################################
 
-open_log_file();
-load_remote_config();
+if ($DAEMON)
+{
+  my $pid = Proc::Daemon::Init;
+  if ($pid)
+  {
+    open  PF, ">$PID_FILE" or die "Can not open pid file.";
+    print PF $pid, "\n";
+    close PF;
+    exit 0;
+  }
+}
 
-$SIG{HUP} = sub { $reload_remote_config = 1; };
+open_log_file();
+print_log 0, "$0 starting.\n";
+
+load_remote_config();
+print_log 0, "Loaded remote configuration.\n";
+
+$terminated = 0;
+$SIG{TERM} = sub {
+  print_log 0, "SigTERM received, will exit.\n"; LOG->flush();
+  $terminated = 1
+};
+$SIG{HUP}  = sub {
+  print_log 0, "SigHUP received, will reload remote configuration.\n"; LOG->flush();
+  $reload_remote_config = 1;
+};
+print_log 0, "Installed signal handlers.\n";
+
 
 my $prev_vals = {};
 
 my $xml = new XML::Simple;
 
 my $socket = new IO::Socket::INET(LocalPort => $PORT, Proto => 'udp')
-    or die "ERROR in Socket Creation: $!\n";
+    or print_log 0, "ERROR in Socket Creation: $!\n", exit 1;
 
 my $apmon = 0;
 if ($APMON_PORT != 0)
@@ -265,10 +298,11 @@ if ($APMON_PORT != 0)
 }
 else
 {
-  print LOG "APMON_PORT = 0 -- will not publish any data!\n";
+  print_log 0, "APMON_PORT = 0 -- will not publish any data!\n";
 }
 
-while (1)
+
+while (not $terminated)
 {
   load_remote_config() if $reload_remote_config;
 
@@ -381,3 +415,8 @@ while (1)
 }
 
 $socket->close();
+
+if ($DAEMON)
+{
+  unlink $PID_FILE;
+}

@@ -10,4 +10,7 @@ configurl	=s	main	CONFIG_URL	"http://xrootd.t2.ucsd.edu:8080/xrootd_cms/host_to_
 clusterprefix	=s	main	CLUSTER_PREFIX	"CMS::"
 
 logfile		=s	main	LOG_FILE	"/var/log/xrootd/xrd-rep-snatcher"
-loglevel	=i	main	LOG_LEVEL	0
+loglevel	=i	main	LOG_LEVEL	1
+
+daemon		!	main	DAEMON		1
+pidfile		=s	main	PID_FILE	"/var/run/xrootd/xrd-rep-snatcher.pid"
