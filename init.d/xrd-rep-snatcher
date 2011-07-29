@@ -6,31 +6,38 @@
 # chkconfig program.
 #
 # chkconfig: - 80 30
-# description: xrootd is a cluster file system.
+# description: xrd-rep-snatcher collects monitoring data from xrootd and cmsd processes.
 
 # Source function library.
+SYSTEMCTL_SKIP_REDIRECT=please
 . /etc/rc.d/init.d/functions
 
-if [ -e /etc/sysconfig/xrootd ] ; then
+if [ -e /etc/sysconfig/xrootd ]; then
     . /etc/sysconfig/xrootd
+else
+    XROOTD_USER=root
 fi
 
+prog=xrd-rep-snatcher.pl
+pidfile=${PIDFILE-/var/run/xrootd/xrd-rep-snatcher.pid}
+lockfile=${LOCKFILE-/var/lock/subsys/xrd-rep-snatcher}
+
 start() {
-    ulimit -n 65536
     echo -n "Starting xrd-rep-snatcher: "
-    daemon --user $XROOTD_USER --pidfile /var/run/xrootd/xrd-rep-snatcher.pid /usr/bin/xrd-rep-snatcher.pl
+    daemon --user $XROOTD_USER --pidfile ${pidfile} ${prog}
     RETVAL=$?
     echo
-    [ $RETVAL -eq 0 ] && touch /var/lock/subsys/xrd-rep-snatcher
+    [ $RETVAL -eq 0 ] && touch ${lockfile}
+    return $RETVAL
 }
 
 # A function to stop a program.
 stop() {
     echo -n "Shutting down xrd-rep-snatcher: "
-    killproc -p /var/run/xrootd/xrd-rep-snatcher.pid xrd-rep-snatcher
+    killproc -p ${pidfile} ${prog}
     RETVAL=$?
     echo
-    rm -f /var/lock/subsys/xrd-rep-snatcher
+    rm -f ${lockfile}
     return $RETVAL
 }
 
@@ -38,6 +45,19 @@ restart() {
     stop
     start
     return $RETVAL
+}
+
+reload() {
+    echo -n "Reloading configuration of xrd-rep-snatcher: "
+    if [ ! -f ${pidfile} ]; then
+     	echo_failure;
+	echo
+	echo "  There is no pidfile ..."
+     	return 1;
+    fi
+    pid=`cat ${pidfile}`
+    kill -1 ${pid} && echo_success && return 0
+    echo_failure && return 1
 }
 
 case $1 in 
@@ -48,19 +68,20 @@ case $1 in
     stop
     ;;
 'status')
-    status xrd-rep-snatcher
+    status -p ${pidfile} ${prog}
     ;;
-'reload' | 'restart')
+'reload')
+    reload
+    ;;
+'restart')
     restart
     ;;
 'condrestart')
-    [ -f /var/lock/subsys/xrd-rep-snatcher ] && restart
+    [ -f ${lockfile} ] && restart
     ;;
-
 *)
     echo "usage: $0 {start|stop|status|restart|condrestart}"
     ;;
 esac
 
 exit $?
-
