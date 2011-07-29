@@ -364,7 +364,8 @@ while (not $terminated)
     next;
   }
 
-  $G_Cluster = ${CLUSTER_PREFIX} . ${G_Site} . $Pgm2ClusterPostfix->{$d->{pgm}};
+  $G_Cluster = ${CLUSTER_PREFIX} . ${G_Site} . $Pgm2ClusterPostfix->{$G_Pgm};
+  print_log 2, "  Using ML cluster: $G_Cluster\n";
 
   # print LOG $raw_data, "\n";
   print_log 3, Data::Dumper::Dumper($d);
