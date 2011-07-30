@@ -1,5 +1,12 @@
 #!/usr/bin/perl -w
 
+################################################################################
+# xrd-rep-snatcher -- reads xrootd/cmsd report-style monitoring and passes it
+#                     on to MonALISA
+# Author: Matevz Tadel, 2011; mtadel@ucsd.edu
+################################################################################
+
+use POSIX ();
 use Proc::Daemon;
 
 use IO::Socket::INET;
@@ -57,6 +64,45 @@ $G_Result  = ();
 
 
 ################################################################################
+# Logging
+################################################################################
+
+sub open_log_file
+{
+  close LOG if defined(LOG) and *LOG ne *STDOUT;
+  if ($LOG_FILE eq '-')
+  {
+    *LOG = *STDOUT;
+  }
+  else
+  {
+    open  LOG, ">> $LOG_FILE" or die "Can not open logfile '$LOG_FILE'.";
+  }
+}
+
+sub print_log($@)
+{
+  my ($l, @a) = @_;
+
+  if ($LOG_LEVEL >= $l)
+  {
+    my $now = localtime();
+    $now =~ s/^\S+\s((\S+\s+){3}).*$/$1/o;
+    print LOG $now, @a;
+  }
+}
+
+sub put_log($@)
+{
+  my ($l, @a) = @_;
+
+  if ($LOG_LEVEL >= $l)
+  {
+    print LOG ' ' x 16, @a;
+  }
+}
+
+################################################################################
 # config
 ################################################################################
 
@@ -76,35 +122,19 @@ sub load_remote_config
 
   eval LWP::Simple::get($CONFIG_URL);
 
-  print LOG "Loading of remote config from $CONFIG_URL ";
+  my $log = "Loading of remote config from $CONFIG_URL ";
   if (defined $G_Host2Site)
   {
     $G_Host2Site_Default = $G_Host2Site;
-    print LOG "successful:\n";
+    $log .= "successful:\n";
   }
   else
   {
     $G_Host2Site = $G_Host2Site_Default;
-    print LOG "failed, kept old or default values:\n";
+    $log .= "failed, kept old or default values:\n";
   }
-  print LOG "  ", Data::Dumper::Dumper($G_Host2Site);
-
+  print_log 0, $log, "  ", Data::Dumper::Dumper($G_Host2Site);
   LOG->flush();
-
-  $reload_remote_config = 0;
-}
-
-sub open_log_file
-{
-  close LOG if defined(LOG) and *LOG ne *STDOUT;
-  if ($LOG_FILE eq '-')
-  {
-    *LOG = *STDOUT;
-  }
-  else
-  {
-    open  LOG, ">> $LOG_FILE" or die "Can not open logfile '$LOG_FILE'.";
-  }
 }
 
 
@@ -156,16 +186,6 @@ $Pgm2Rates =
 ################################################################################
 # print, compare sub-trees
 ################################################################################
-
-sub print_log($@)
-{
-  my ($l, @a) = @_;
-
-  if ($LOG_LEVEL >= $l)
-  {
-    print LOG @a;
-  }
-}
 
 sub print_compare_entries
 {
@@ -247,45 +267,67 @@ sub send_rates
 
 
 ################################################################################
+# Signal handlers
+################################################################################
+
+my $sig_hup_received  = 0;
+my $sig_term_received = 0;
+
+sub sig_moo_handler
+{
+  my $sig = shift;
+
+  if ($sig eq 'HUP')
+  {
+    print_log 0, "SigHUP received ...\n"; LOG->flush();
+    $sig_hup_received = 1;
+  }
+  elsif ($sig eq 'CHLD')
+  {
+    print_log 0, "SigCHLD received.\n"; LOG->flush();
+  }
+}
+
+sub sig_term_handler
+{
+  print_log 0, "SigTERM received ... presumably exiting.\n"; LOG->flush();
+  $sig_term_received = 1;
+}
+
+
+################################################################################
 # main()
 ################################################################################
 
+# Try to open the log file.
+open_log_file();
+
 if ($DAEMON)
 {
-  my $pid = Proc::Daemon::Init;
+  my $pid = Proc::Daemon::Init({
+    work_dir      => $ENV{PWD},
+    dont_close_fh => ['ApMon::Common::SOCKET'] # Bummer, ApMon has static socket init!
+  });
+
   if ($pid)
   {
-    open  PF, ">$PID_FILE" or die "Can not open pid file.";
+    open  PF, ">$PID_FILE" or die "Can not open pid file, dying";
     print PF $pid, "\n";
     close PF;
     exit 0;
   }
+  else
+  {
+    print "Yow, i R the daemon, we guess\n";
+    # Reopen log for the new process.
+    open_log_file();
+    print_log 0, "$0 starting.\n";
+    print_log 0, "Redirecting stdout and stderr into this file.\n";
+    *STDOUT = *LOG;
+    *STDERR = *LOG;
+  }
 }
 
-open_log_file();
-print_log 0, "$0 starting.\n";
-
-load_remote_config();
-print_log 0, "Loaded remote configuration.\n";
-
-$terminated = 0;
-$SIG{TERM} = sub {
-  print_log 0, "SigTERM received, will exit.\n"; LOG->flush();
-  $terminated = 1
-};
-$SIG{HUP}  = sub {
-  print_log 0, "SigHUP received, will reload remote configuration.\n"; LOG->flush();
-  $reload_remote_config = 1;
-};
-print_log 0, "Installed signal handlers.\n";
-
-
-my $prev_vals = {};
-
-my $xml = new XML::Simple;
-
-my $socket = new IO::Socket::INET(LocalPort => $PORT, Proto => 'udp')
-    or print_log 0, "ERROR in Socket Creation: $!\n", exit 1;
 
 my $apmon = 0;
 if ($APMON_PORT != 0)
@@ -302,9 +344,45 @@ else
 }
 
 
-while (not $terminated)
+# Install sig handlers now ... ApMon messes this up.
+
+my $sigact1 = POSIX::SigAction->new(\&sig_moo_handler, POSIX::SigSet->new());
+POSIX::sigaction(&POSIX::SIGHUP,  $sigact1);
+POSIX::sigaction(&POSIX::SIGCHLD, $sigact1);
+
+my $sigact2 = POSIX::SigAction->new(\&sig_term_handler, POSIX::SigSet->new());
+POSIX::sigaction(&POSIX::SIGTERM, $sigact2);
+
+print_log 0, "Installed signal handlers.\n";
+
+
+# Get ready for work ...
+
+load_remote_config();
+print_log 0, "Loaded remote configuration.\n";
+
+
+my $prev_vals = {};
+
+my $xml = new XML::Simple;
+
+my $socket = new IO::Socket::INET(LocalPort => $PORT, Proto => 'udp')
+    or print_log 0, "ERROR in Socket Creation: $!\n", exit 1;
+
+
+# The main loop
+
+while (not $sig_term_received)
 {
-  load_remote_config() if $reload_remote_config;
+  if ($sig_hup_received)
+  {
+    print_log 0, "Processing SigHUP: reopening log file.\n";
+    open_log_file();
+    print_log 0, "Processing SigHUP: log file reopened.\n";
+    print_log 0, "Processing SigHUP: reloading remote configuration.\n";
+    load_remote_config();
+    $sig_hup_received = 0;
+  }
 
   # read operation on the socket
   my $raw_data;
@@ -345,30 +423,21 @@ while (not $terminated)
   $G_Host =~ m/(\w+\.\w+)$/;
   $G_Site = exists $G_Host2Site->{$1} ? $G_Host2Site->{$1} : 'unknown';
 
-  print_log 0,
-  "Message from $d->{src}, len=", length $raw_data, ", Site=$G_Site, Pgm=$G_Pgm\n",
-  "  Local time:    ", scalar localtime $d->{tor}, "\n",
-  "  Recv time:     ", $d->{tor}, "\n",
-  "  Service start: ", $d->{tos}, "\n",
-  "  Collect start: ", $d->{tod}, ", end:", $d->{toe}, ", delta=", $d->{toe} - $d->{tod}, "\n";
+  my $cluster_pfx = exists $Pgm2ClusterPostfix->{$G_Pgm} ? $Pgm2ClusterPostfix->{$G_Pgm} : 'unknown';
+  $G_Cluster = ${CLUSTER_PREFIX} . ${G_Site} . $cluster_pfx;
 
-  if (not exists $Pgm2ClusterPostfix->{$G_Pgm})
+  print_log 0, "Message from $d->{src}, len=", length $raw_data, ", Site=$G_Site, Pgm=$G_Pgm, Cluster=$G_Cluster\n";
+  put_log   2, "Service start: ", $d->{tos}, "\n",
+  put_log   2, "Collect start: ", $d->{tod}, ", end:", $d->{toe}, ", delta=", $d->{toe} - $d->{tod}, "\n";
+
+  if ($cluster_pfx eq 'unknown')
   {
-    print_log 0, "  Dropping -- unknown program name.";
+    put_log 0, "  Dropping -- unknown program name.\n";
     next;
   }
-
-  if ($G_Site eq 'none')
-  {
-    print_log 0, "  Dropping -- unknown site.";
-    next;
-  }
-
-  $G_Cluster = ${CLUSTER_PREFIX} . ${G_Site} . $Pgm2ClusterPostfix->{$G_Pgm};
-  print_log 2, "  Using ML cluster: $G_Cluster\n";
 
   # print LOG $raw_data, "\n";
-  print_log 3, Data::Dumper::Dumper($d);
+  # print LOG Data::Dumper::Dumper($d);
 
   ### Process variables
 
@@ -385,7 +454,7 @@ while (not $terminated)
 
     $G_Delta_T = $d->{tor} - $o->{tor};
 
-    print_log 1, "  Has prev val, time was $o->{tor}, delta=$G_Delta_T\n";
+    put_log 1, "Has prev val, time was $o->{tor}, delta=$G_Delta_T\n";
 
     #print_compare_entries($d, $o, ['buff']);
     #print_compare_entries($d, $o, ['link']);
@@ -415,9 +484,14 @@ while (not $terminated)
   LOG->flush();
 }
 
+
+print_log 0, "Out of main loop ... shutting down.\n";
+
 $socket->close();
 
 if ($DAEMON)
 {
+  print_log 0, "Removing pid-file $PID_FILE.\n";
+
   unlink $PID_FILE;
 }
