@@ -305,7 +305,7 @@ open_log_file();
 if ($DAEMON)
 {
   my $pid = Proc::Daemon::Init({
-    work_dir      => $ENV{PWD},
+    work_dir      => "/",                      # This is default, too.
     dont_close_fh => ['ApMon::Common::SOCKET'] # Bummer, ApMon has static socket init!
   });
 
