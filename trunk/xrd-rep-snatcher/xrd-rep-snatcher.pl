@@ -174,7 +174,9 @@ $Pgm2Rates =
     # ['poll'], ['att', 'en', 'ev', 'int']
     [ ['proc'], ['sys', 'usr'] ],
     [ ['sched'], ['jobs'] ],
+    [ ['xrootd'],        ['num', 'dly', 'err', 'rdr'] ],
     [ ['xrootd', 'ops'], ['getf', 'misc', 'open', 'pr', 'putf', 'rd', 'rf', 'sync', 'wr'] ],
+    [ ['xrootd', 'lgn'], ['num', 'af', 'au', 'ua'] ],
   ],
   'cmsd'   => [
     [ ['proc'], ['sys', 'usr']  ],
@@ -398,7 +400,7 @@ while (not $sig_term_received)
 
   my $d = $xml->XMLin($raw_data, keyattr => ["id"]);
 
-  ### next unless $d->{src} eq 'uaf-3.t2.ucsd.edu:1094';
+  # next unless $d->{src} eq 'uaf-3.t2.ucsd.edu:1094';
 
   next unless exists $d->{stats};
 
