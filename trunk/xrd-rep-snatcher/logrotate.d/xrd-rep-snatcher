@@ -1,7 +1,9 @@
 /var/log/xrootd/xrd-rep-snatcher {
-    sharedscripts
+    missingok
     rotate 7
     daily
+    compress
+    delaycompress
     postrotate
 	/bin/kill -HUP `cat /var/run/xrootd/xrd-rep-snatcher.pid 2> /dev/null` 2> /dev/null || true
     endscript
