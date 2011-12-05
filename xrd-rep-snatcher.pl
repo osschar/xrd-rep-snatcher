@@ -198,13 +198,16 @@ sub print_compare_entries
 
   for $k (@$path)
   {
+    last unless exists $d->{$k};
     $d = $d->{$k};
+    last unless exists $o->{$k};
     $o = $o->{$k};
   }
 
   print LOG "  ", join('.', @$path), "\n";
   for $k (sort keys(%$d))
   {
+    next unless exists $d->{$k} and exists $o->{$k};
     printf LOG "    %-10s  %20f  %20f  %20f %20f\n", $k, $d->{$k}, $o->{$k},
       $d->{$k} - $o->{$k}, ($d->{$k} - $o->{$k}) / $G_Delta_T;
   }
@@ -223,6 +226,7 @@ sub send_values
 
   for $k (@$path)
   {
+    last unless exists $d->{$k};
     $d = $d->{$k};
   }
 
@@ -231,6 +235,7 @@ sub send_values
 
   for $p (@$params)
   {
+    next unless exists $d->{$p};
     push @result, $prefix . "_" . $p, $d->{$p};
   }
 
@@ -258,6 +263,7 @@ sub send_rates
   # print "  $prefix\n";
   for $p (@$params)
   {
+    next unless exists $d->{$p} and exists $o->{$p};
     # printf LOG "    %-8s  %20f  %20f  %20f\n", $p, $d->{$p}, $o->{$p}, $d->{$p} - $o->{$p};
     push @result, $prefix . "_" . $p . "_R", ($d->{$p} - $o->{$p}) / $G_Delta_T;
   }
