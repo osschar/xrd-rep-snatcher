@@ -435,7 +435,7 @@ while (not $sig_term_received)
   $G_Cluster = ${CLUSTER_PREFIX} . ${G_Site} . $cluster_pfx;
 
   print_log 0, "Message from $d->{src}, len=", length $raw_data, ", Site=$G_Site, Pgm=$G_Pgm, Cluster=$G_Cluster\n";
-  put_log   2, "Service start: ", $d->{tos}, "\n",
+  put_log   2, "Service start: ", $d->{tos}, "\n";
   put_log   2, "Collect start: ", $d->{tod}, ", end:", $d->{toe}, ", delta=", $d->{toe} - $d->{tod}, "\n";
 
   if ($cluster_pfx eq 'unknown')
@@ -472,12 +472,18 @@ while (not $sig_term_received)
     #print_compare_entries($d, $o, ['xrootd', 'aio']);
     #print_compare_entries($d, $o, ['xrootd', 'ops']);
 
+    push @G_Result, "delta_t", $G_Delta_T;
+
     for $value_pair (@{$Pgm2Rates->{$G_Pgm}})
     {
       send_rates($d, $o, $value_pair->[0], $value_pair->[1]);
     }
 
     $G_Delta_T = 0;
+  }
+  else
+  {
+    push @G_Result, "delta_t", -1;
   }
 
   if ($apmon)
