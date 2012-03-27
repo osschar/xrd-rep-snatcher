@@ -155,11 +155,12 @@ sub determine_site_name
     }
     elsif ($t eq 'CODE')
     {
-      return &$e($l);
+      return &$e($host);
     }
     else
     {
-      print "Jebo ref type: ", $t, "!\n";
+      print_log 0, "Unknown reference type '$t' for host $host.";
+      LOG->flush();
     }
   }
 
