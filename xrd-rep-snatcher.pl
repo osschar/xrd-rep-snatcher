@@ -137,6 +137,35 @@ sub load_remote_config
   LOG->flush();
 }
 
+sub determine_site_name
+{
+  my $host = shift;
+
+  $host =~ m/(\w+\.\w+)$/;
+  my $domain = $1;
+
+  if (exists $G_Host2Site->{$domain})
+  {
+    my $e = $G_Host2Site->{$domain};
+    my $t = ref($e);
+
+    if (not $t)
+    {
+      return $e;
+    }
+    elsif ($t eq 'CODE')
+    {
+      return &$e($l);
+    }
+    else
+    {
+      print "Jebo ref type: ", $t, "!\n";
+    }
+  }
+
+  return 'unknown';
+}
+
 
 ################################################################################
 # xrootd / cmsd config of stuff to send to ML
@@ -429,7 +458,7 @@ while (not $sig_term_received)
   $G_Host = $d->{stats}{info}{host};
 
   $G_Host =~ m/(\w+\.\w+)$/;
-  $G_Site = exists $G_Host2Site->{$1} ? $G_Host2Site->{$1} : 'unknown';
+  $G_Site = determine_site_name($1);
 
   my $cluster_pfx = exists $Pgm2ClusterPostfix->{$G_Pgm} ? $Pgm2ClusterPostfix->{$G_Pgm} : 'unknown';
   $G_Cluster = ${CLUSTER_PREFIX} . ${G_Site} . $cluster_pfx;
