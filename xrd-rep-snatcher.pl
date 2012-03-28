@@ -457,9 +457,7 @@ while (not $sig_term_received)
 
   $G_Pgm  = $d->{pgm};
   $G_Host = $d->{stats}{info}{host};
-
-  $G_Host =~ m/(\w+\.\w+)$/;
-  $G_Site = determine_site_name($1);
+  $G_Site = determine_site_name($G_Host);
 
   my $cluster_pfx = exists $Pgm2ClusterPostfix->{$G_Pgm} ? $Pgm2ClusterPostfix->{$G_Pgm} : 'unknown';
   $G_Cluster = ${CLUSTER_PREFIX} . ${G_Site} . $cluster_pfx;
