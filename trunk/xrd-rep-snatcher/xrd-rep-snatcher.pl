@@ -141,7 +141,7 @@ sub determine_site_name
 {
   my $host = shift;
 
-  $host =~ m/(\w+\.\w+)$/;
+  $host =~ m/([\w-]+\.[\w-]+)$/;
   my $domain = $1;
 
   if (exists $G_Host2Site->{$domain})
