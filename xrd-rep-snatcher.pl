@@ -164,7 +164,15 @@ sub determine_site_name
     }
   }
 
-  return 'unknown';
+  if ($UNKNOWN_SITE eq '<domain>')
+  {
+     $host =~ m/^[^\.]\.(.*)$/;
+     return $1;
+  }
+  else
+  {
+    return $UNKNOWN_SITE;
+  }
 }
 
 
