@@ -188,37 +188,31 @@ $Pgm2ClusterPostfix =
 
 $Pgm2Values =
 {
-  'xrootd' =>
-   [
+  'xrootd' => [
+    [ [],        ['ver'] ],
     [ ['buff'],  ['reqs', 'buffs', 'mem'] ],
     [ ['link'],  ['ctime', 'maxn', 'in', 'num', "out", "tmo", "tot"] ],
-    # ofs - all zeroes?
-    # oss - not used!
-    # ['poll'], ['att', 'en', 'ev', 'int']
-    # proc - only as rates
     [ ['sched'], ['idle', 'inq', 'maxinq', 'tcr', 'tde', 'threads', 'tlimr'] ],
    ],
-  'cmsd' =>
-   [
-    # [  ],
+  'cmsd' => [
+    [ [],        ['ver'] ],
    ],
 };
 
 $Pgm2Rates =
 {
   'xrootd' => [
-    [ ['buff'], ['reqs', 'buffs', 'mem'] ],
-    [ ['link'], ['in', 'num', "out", "tmo", "tot"] ],
-    # ['poll'], ['att', 'en', 'ev', 'int']
-    [ ['proc'], ['sys', 'usr'] ],
-    [ ['sched'], ['jobs'] ],
+    [ ['buff'],          ['reqs', 'buffs', 'mem'] ],
+    [ ['link'],          ['in', 'num', "out", "tmo", "tot"] ],
+    [ ['proc'],          ['sys', 'usr'] ],
+    [ ['sched'],         ['jobs'] ],
     [ ['xrootd'],        ['num', 'dly', 'err', 'rdr'] ],
     [ ['xrootd', 'ops'], ['getf', 'misc', 'open', 'pr', 'putf', 'rd', 'rf', 'sync', 'wr'] ],
     [ ['xrootd', 'lgn'], ['num', 'af', 'au', 'ua'] ],
   ],
-  'cmsd'   => [
-    [ ['proc'], ['sys', 'usr']  ],
-    # [  ],
+  'cmsd' => [
+    [ ['proc'],          ['sys', 'usr']  ],
+    [ ['cmsm','frq'],    ['rs', 'rsp_m', 'add', 'ls', 'rf', 'add_d', 'rsp', 'lf'] ],
   ],
 };
 
@@ -444,7 +438,7 @@ while (not $sig_term_received)
 
   my $d = $xml->XMLin($raw_data, keyattr => ["id"]);
 
-  # next unless $d->{src} eq 'uaf-3.t2.ucsd.edu:1094';
+  # next unless $d->{src} =~ m/^xrootd.t2.ucsd.edu/ and $d->{pgm} eq 'cmsd';
 
   next unless exists $d->{stats};
 
@@ -461,6 +455,14 @@ while (not $sig_term_received)
   {
     $d->{stats}{proc}{sys} = $d->{stats}{proc}{sys}{s} + 0.000001 * $d->{stats}{proc}{sys}{u};
     $d->{stats}{proc}{usr} = $d->{stats}{proc}{usr}{s} + 0.000001 * $d->{stats}{proc}{usr}{u};
+  }
+  # Fix-up cmsm_frq (maybe could do it with XML::Simple options?)
+  if ($d->{pgm} eq 'cmsd' and exists $d->{stats}{cmsm}{frq})
+  {
+    $d->{stats}{cmsm}{frq}{add_d} = $d->{stats}{cmsm}{frq}{add}{d};
+    $d->{stats}{cmsm}{frq}{add}   = $d->{stats}{cmsm}{frq}{add}{content};
+    $d->{stats}{cmsm}{frq}{rsp_m} = $d->{stats}{cmsm}{frq}{rsp}{m};
+    $d->{stats}{cmsm}{frq}{rsp}   = $d->{stats}{cmsm}{frq}{rsp}{content};
   }
 
   $G_Pgm  = $d->{pgm};
