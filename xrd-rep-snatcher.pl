@@ -53,6 +53,7 @@ if ($HELP)
 $G_Pgm     = "none";
 $G_Host    = "none";
 $G_Site    = "none";
+$G_ProcId  = "none";
 
 $G_Cluster = "none";
 
@@ -468,6 +469,7 @@ while (not $sig_term_received)
   $G_Pgm  = $d->{pgm};
   $G_Host = $d->{stats}{info}{host};
   $G_Site = determine_site_name($G_Host);
+  $G_ProcId = "$d->{src}_$d->{pgm}_$d->{tos}";
 
   my $cluster_pfx = exists $Pgm2ClusterPostfix->{$G_Pgm} ? $Pgm2ClusterPostfix->{$G_Pgm} : 'unknown';
   $G_Cluster = ${CLUSTER_PREFIX} . ${G_Site} . $cluster_pfx;
@@ -494,9 +496,9 @@ while (not $sig_term_received)
 
   ### Process rates (requires previous record and the same service start time)
 
-  if (exists $prev_vals->{$d->{src}} and $d->{tos} == $prev_vals->{$d->{src}}{tos})
+  if (exists $prev_vals->{$G_ProcId})
   {
-    my $o = $prev_vals->{$d->{src}};
+    my $o = $prev_vals->{$G_ProcId};
 
     $G_Delta_T = $d->{tor} - $o->{tor};
 
@@ -531,7 +533,7 @@ while (not $sig_term_received)
 
   @G_Result = ();
 
-  $prev_vals->{$d->{src}} = $d;
+  $prev_vals->{$G_ProcId} = $d;
 
   LOG->flush();
 }
