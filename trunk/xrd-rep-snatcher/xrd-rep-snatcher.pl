@@ -437,7 +437,13 @@ while (not $sig_term_received)
 
   # print LOG "\n($address , $port) said : $raw_data\n\n";
 
-  my $d = $xml->XMLin($raw_data, keyattr => ["id"]);
+  my $d = eval { $xml->XMLin($raw_data, keyattr => ["id"]); };
+
+  if ($@)
+  {
+    print_log 1, "Parse error on msg from $address:$port:", $@, $raw_data, "\n";
+    next;
+  }
 
   # next unless $d->{src} =~ m/^xrootd.t2.ucsd.edu/ and $d->{pgm} eq 'cmsd';
 
