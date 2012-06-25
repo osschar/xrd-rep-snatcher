@@ -109,12 +109,46 @@ sub put_log($@)
 
 $G_Host2Site_Default =
 {
+  # Common sites
+  'cern.ch'        => 'CERN',
+
+  # CMS sites
   'ucsd.edu'       => 'UCSD',
   'unl.edu'        => 'UNL',
   'ultralight.org' => 'CalTech',
   'fnal.gov'       => 'FNAL',
   'purdue.edu'     => 'Purdue',
-  'wisc.edu'       => 'Wisconsin',
+  'wisc.edu'       =>  sub {
+    my $h = shift;
+    return 'Wisconsin' if $h =~ m/^s17n\d+\.hep\./;
+    return 'Wisconsin Internal';
+  },
+  'ufl.edu'        => 'UFL',
+  'mit.edu'        => 'MIT',
+  'ac.uk'          =>  sub {
+    my $h = shift;
+    return 'UK IC London' if $h =~ m/\.ic\.ac\.uk/;
+    return 'UK RAL'       if $h =~ m/\.rl\.ac\.uk/;
+    return 'UK';
+  },
+  'infn.it'        =>  sub {
+    my $h = shift;
+    return 'INFN Bari' if $h =~ m/\.ba\.infn\.it/;
+    return 'INFN';
+  },
+
+  # ATLAS sites
+  'stanford.edu'   => 'SLAC',
+  'aglt2.org'      => 'AGLT2',
+  'atlas-swt2.org' => 'SWT2_CPB',
+  'ou.edu'         =>  sub {
+    my $h = shift;
+    return 'SWT2_OU_T3' if $h =~ m/\.nhn\.ou\.edu/;
+    return 'SWT2_OU';
+  },
+  'iu.edu'         => 'MWT2_IU',
+  'uiuc.edu'       => 'MWT2_UIUC',
+  'uchicago.edu'   => 'MWT2_UC',
 };
 
 sub load_remote_config
