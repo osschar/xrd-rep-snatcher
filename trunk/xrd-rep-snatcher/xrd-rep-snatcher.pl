@@ -133,7 +133,9 @@ $G_Host2Site_Default =
   },
   'infn.it'        =>  sub {
     my $h = shift;
-    return 'INFN Bari' if $h =~ m/\.ba\.infn\.it/;
+    return 'INFN Bari'    if $h =~ m/\.ba\.infn\.it/;
+    return 'INFN Pisa'    if $h =~ m/\.pi\.infn\.it/;
+    return 'INFN Legnaro' if $h =~ m/\.lnl\.infn\.it/;
     return 'INFN';
   },
 
