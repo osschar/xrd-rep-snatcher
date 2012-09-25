@@ -14,9 +14,19 @@ export XROOTD_USER=xrootd
 FNORD
 fi
 
+
 cp xrd-rep-snatcher.pl          /usr/bin
-cp xrd-rep-snatcher.rc          /etc/xrootd/
 cp init.d/xrd-rep-snatcher      /etc/init.d
 cp logrotate.d/xrd-rep-snatcher /etc/logrotate.d
+
+
+if [ ! -e /etc/xrootd/xrd-rep-snatcher.rc ]; then
+  cp xrd-rep-snatcher.rc        /etc/xrootd/
+fi
+
+if [ ! -e /etc/xrootd/host_to_site.pddd ]; then
+  cp example_host_to_site.pddd  /etc/xrootd/host_to_site.pddd
+fi
+
 
 chkconfig --add xrd-rep-snatcher

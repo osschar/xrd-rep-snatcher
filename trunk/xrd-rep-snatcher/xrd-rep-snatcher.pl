@@ -153,13 +153,20 @@ $G_Host2Site_Default =
   'uchicago.edu'   => 'MWT2_UC',
 };
 
-sub load_remote_config
+sub load_config_file
 {
   undef $G_Host2Site;
 
-  eval LWP::Simple::get($CONFIG_URL);
+  if ($CONFIG_URL =~ m!^https?:!)
+  {
+    eval LWP::Simple::get($CONFIG_URL);
+  }
+  else
+  {
+    do $CONFIG_URL;
+  }
 
-  my $log = "Loading of remote config from $CONFIG_URL ";
+  my $log = "Loading config from $CONFIG_URL ";
   if (defined $G_Host2Site)
   {
     $G_Host2Site_Default = $G_Host2Site;
@@ -435,8 +442,8 @@ print_log 0, "Installed signal handlers.\n";
 
 # Get ready for work ...
 
-load_remote_config();
-print_log 0, "Loaded remote configuration.\n";
+load_config_file();
+print_log 0, "Loaded configuration from file.\n";
 
 
 my $prev_vals = {};
@@ -456,8 +463,8 @@ while (not $sig_term_received)
     print_log 0, "Processing SigHUP: reopening log file.\n";
     open_log_file();
     print_log 0, "Processing SigHUP: log file reopened.\n";
-    print_log 0, "Processing SigHUP: reloading remote configuration.\n";
-    load_remote_config();
+    print_log 0, "Processing SigHUP: reloading configuration from file.\n";
+    load_config_file();
     $sig_hup_received = 0;
   }
 

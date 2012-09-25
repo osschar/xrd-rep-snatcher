@@ -5,7 +5,9 @@ port		=i	main	PORT		9931
 apmonhost	=s	main	APMON_HOST	"localhost"
 apmonport	=i	main	APMON_PORT	8884
 
-configurl	=s	main	CONFIG_URL	"http://xrootd.t2.ucsd.edu:8080/xrootd_cms/host_to_site.pddd"
+configurl	=s	main	CONFIG_URL	"example_host_to_site.pddd"
+# Can also be served via http:
+# configurl     =s      main    CONFIG_URL      "http://xrootd.t2.ucsd.edu:8080/xrootd_cms/host_to_site.pddd"
 
 clusterprefix	=s	main	CLUSTER_PREFIX	"CMS::"
 unknownsite     =s      main    UNKNOWN_SITE    "unknown"
