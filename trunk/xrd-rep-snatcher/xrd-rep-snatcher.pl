@@ -230,16 +230,18 @@ $Pgm2ClusterPostfix =
   'cmsd'   => '::CmsdReport',
 };
 
+### NOTE THIS: 'stats' is implied unless first array-ref is empty!
+### This is to allow extraction of top-levels, like 'ver' in this case.
 $Pgm2Values =
 {
   'xrootd' => [
-    [ [],        ['ver'] ],
+    [ [],        ['ver', 'site', 'pid'] ],
     [ ['buff'],  ['reqs', 'buffs', 'mem'] ],
-    [ ['link'],  ['ctime', 'maxn', 'in', 'num', "out", "tmo", "tot"] ],
+    [ ['link'],  ['ctime', 'maxn', 'in', 'num', 'out', 'tmo', 'tot'] ],
     [ ['sched'], ['idle', 'inq', 'maxinq', 'tcr', 'tde', 'threads', 'tlimr'] ],
    ],
   'cmsd' => [
-    [ [],        ['ver'] ],
+    [ [],        ['ver', 'site', 'pid'] ],
    ],
 };
 
@@ -247,7 +249,7 @@ $Pgm2Rates =
 {
   'xrootd' => [
     [ ['buff'],          ['reqs', 'buffs', 'mem'] ],
-    [ ['link'],          ['in', 'num', "out", "tmo", "tot"] ],
+    [ ['link'],          ['in', 'num', 'out', 'tmo', 'tot'] ],
     [ ['proc'],          ['sys', 'usr'] ],
     [ ['sched'],         ['jobs'] ],
     [ ['xrootd'],        ['num', 'dly', 'err', 'rdr'] ],
@@ -298,21 +300,28 @@ sub send_values
 {
   my ($d, $path, $params) = @_;
 
-  $d = $d->{stats};
+  my $prefix = "";
 
-  for $k (@$path)
+  if (scalar @$path > 0)
   {
-    last unless exists $d->{$k};
-    $d = $d->{$k};
+    ### NOTE THIS, implied cd into 'stats'!
+    $d = $d->{stats};
+
+    for $k (@$path)
+    {
+      last unless exists $d->{$k};
+      $d = $d->{$k};
+    }
+
+    $prefix = join('_', @$path) . '_';
   }
 
-  my $prefix = join('_', @$path);
   my @result = ();
 
   for $p (@$params)
   {
     next unless exists $d->{$p};
-    push @result, $prefix . "_" . $p, $d->{$p};
+    push @result, $prefix . $p, $d->{$p};
   }
 
   print_log 2, "Sending values:", join(', ', @result), "\n";
