@@ -30,3 +30,16 @@ fi
 
 
 chkconfig --add xrd-rep-snatcher
+
+echo <<EOF
+  # Note, you will need the following:
+  yum install perl-Proc-Daemon
+  yum install perl-XML-Simple
+  Get ApMon_perl-2.2.20 from http://monalisa.caltech.edu/monalisa__Download__ApMon.html
+        perl Makefile.PL
+        make
+        make test
+        make install
+  perl -MCPAN -e shell
+       install Getopt::FileConfig
+EOF
