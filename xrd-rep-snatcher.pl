@@ -479,7 +479,7 @@ while (not $sig_term_received)
 
   # read operation on the socket
   my $raw_data;
-  next unless defined $socket->recv($raw_data, 8192);
+  next unless defined $socket->recv($raw_data, 65536);
 
   my $recv_time = Time::HiRes::time();
 
