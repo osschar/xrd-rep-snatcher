@@ -237,8 +237,8 @@ $Pgm2Values =
   'xrootd' => [
     [ [],        ['ver', 'site'] ],
     [ ['buff'],  ['reqs', 'buffs', 'mem'] ],
-    [ ['link'],  ['ctime', 'maxn', 'in', 'num', 'out', 'tmo', 'tot'] ],
-    [ ['sched'], ['idle', 'inq', 'maxinq', 'tcr', 'tde', 'threads', 'tlimr'] ],
+    [ ['link'],  ['maxn', 'num'] ],
+    [ ['sched'], ['idle', 'inq', 'threads'] ],
    ],
   'cmsd' => [
     [ [],        ['ver', 'site'] ],
@@ -248,16 +248,17 @@ $Pgm2Values =
 $Pgm2Rates =
 {
   'xrootd' => [
-    [ ['buff'],          ['reqs', 'buffs', 'mem'] ],
-    [ ['link'],          ['in', 'num', 'out', 'tmo', 'tot'] ],
     [ ['proc'],          ['sys', 'usr'] ],
-    [ ['sched'],         ['jobs'] ],
-    [ ['xrootd'],        ['num', 'dly', 'err', 'rdr'] ],
-    [ ['xrootd', 'ops'], ['getf', 'misc', 'open', 'pr', 'putf', 'rd', 'rf', 'sync', 'wr'] ],
+    [ ['buff'],          ['reqs', 'buffs', 'mem'] ],
+    [ ['link'],          ['in', 'num', 'out', 'tmo'] ],
+    # [ ['sched'],         ['jobs'] ],
+    [ ['xrootd'],        ['dly', 'err', 'rdr'] ],
+    [ ['xrootd', 'ops'], ['open', 'pr', 'rd', 'rv', 'sync', 'wr'] ],
     [ ['xrootd', 'lgn'], ['num', 'af', 'au', 'ua'] ],
   ],
   'cmsd' => [
     [ ['proc'],          ['sys', 'usr']  ],
+    [ ['cmsm','sel'],    ['t', 'r', 'w'] ],
     [ ['cmsm','frq'],    ['rs', 'rsp_m', 'add', 'ls', 'rf', 'add_d', 'rsp', 'lf'] ],
   ],
 };
