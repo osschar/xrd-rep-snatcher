@@ -235,13 +235,13 @@ $Pgm2ClusterPostfix =
 $Pgm2Values =
 {
   'xrootd' => [
-    [ [],        ['ver', 'site', 'pid'] ],
+    [ [],        ['ver', 'site'] ],
     [ ['buff'],  ['reqs', 'buffs', 'mem'] ],
     [ ['link'],  ['ctime', 'maxn', 'in', 'num', 'out', 'tmo', 'tot'] ],
     [ ['sched'], ['idle', 'inq', 'maxinq', 'tcr', 'tde', 'threads', 'tlimr'] ],
    ],
   'cmsd' => [
-    [ [],        ['ver', 'site', 'pid'] ],
+    [ [],        ['ver', 'site'] ],
    ],
 };
 
@@ -570,7 +570,8 @@ while (not $sig_term_received)
     #print_compare_entries($d, $o, ['xrootd', 'aio']);
     #print_compare_entries($d, $o, ['xrootd', 'ops']);
 
-    push @G_Result, "delta_t", $G_Delta_T;
+    # To store delta_t into the DB
+    # push @G_Result, "delta_t", $G_Delta_T;
 
     for $value_pair (@{$Pgm2Rates->{$G_Pgm}})
     {
@@ -581,7 +582,8 @@ while (not $sig_term_received)
   }
   else
   {
-    push @G_Result, "delta_t", -1;
+    # To store delta_t into the DB
+    # push @G_Result, "delta_t", -1;
   }
 
   if ($apmon)
