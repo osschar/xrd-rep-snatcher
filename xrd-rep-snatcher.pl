@@ -250,7 +250,7 @@ $Pgm2Rates =
   'xrootd' => [
     [ ['proc'],          ['sys', 'usr'] ],
     [ ['buff'],          ['reqs', 'buffs', 'mem'] ],
-    [ ['link'],          ['in', 'num', 'out', 'tmo'] ],
+    [ ['link'],          ['in', 'num', 'out', 'tmo', 'tot'] ],
     # [ ['sched'],         ['jobs'] ],
     [ ['xrootd'],        ['dly', 'err', 'rdr'] ],
     [ ['xrootd', 'ops'], ['open', 'pr', 'rd', 'rv', 'sync', 'wr'] ],
